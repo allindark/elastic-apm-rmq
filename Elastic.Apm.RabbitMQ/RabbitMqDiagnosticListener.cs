@@ -8,7 +8,7 @@ namespace Elastic.Apm.RabbitMQ
 {
   internal class RabbitMqDiagnosticListener : IObserver<KeyValuePair<string, object>>
   {
-    private readonly ConcurrentDictionary<Guid, ISpan> _processingQueries = new ConcurrentDictionary<Guid, ISpan>();
+    private readonly ConcurrentDictionary<Guid, IExecutionSegment> _processingQueries = new ConcurrentDictionary<Guid, IExecutionSegment>();
     private IApmAgent _ApmAgent;
     private readonly IApmLogger _Logger;
 
@@ -48,24 +48,15 @@ namespace Elastic.Apm.RabbitMQ
       {
         var prms = evt.Params;
 
-        var transaction = _ApmAgent.Tracer.CurrentTransaction;
-        var currentExecutionSegment = _ApmAgent.Tracer.CurrentSpan ?? (IExecutionSegment)transaction;
-        if (currentExecutionSegment == null)
-          currentExecutionSegment = _ApmAgent.Tracer.StartTransaction(prms.CommandName, ApiConstants.TypeExternal);
+        var transaction = _ApmAgent.Tracer.StartTransaction(prms.RoutingKey, ApiConstants.TypeExternal);
 
-        var span = currentExecutionSegment.StartSpan(
-            prms.CommandName,
-            ApiConstants.TypeExternal,
-            "mongo");
+        if (!_processingQueries.TryAdd(prms.Id, transaction)) return;
 
-        if (!_processingQueries.TryAdd(prms.Id, span)) return;
-
-        span.Action = ApiConstants.ActionExec;
-        span.Context.Labels.Add(nameof(prms.ConsumerTag), prms.ConsumerTag);
-        span.Context.Labels.Add(nameof(prms.DeliveryTag), $"{prms.DeliveryTag}");
-        span.Context.Labels.Add(nameof(prms.Exchange), prms.Exchange);
-        span.Context.Labels.Add(nameof(prms.Redelivered), $"{prms.ConsumerTag}");
-        span.Context.Labels.Add(nameof(prms.Body), prms.Body?.Length > 0 ? System.Text.Encoding.UTF8.GetString(prms.Body) : string.Empty);
+        transaction.Context.Labels.Add(nameof(prms.ConsumerTag), prms.ConsumerTag);
+        transaction.Context.Labels.Add(nameof(prms.DeliveryTag), $"{prms.DeliveryTag}");
+        transaction.Context.Labels.Add(nameof(prms.Exchange), prms.Exchange);
+        transaction.Context.Labels.Add(nameof(prms.Redelivered), $"{prms.ConsumerTag}");
+        transaction.Context.Labels.Add(nameof(prms.Body), prms.Body?.Length > 0 ? System.Text.Encoding.UTF8.GetString(prms.Body) : string.Empty);
       }
       catch (Exception ex)
       {
