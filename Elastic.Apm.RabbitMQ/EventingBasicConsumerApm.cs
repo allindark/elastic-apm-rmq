@@ -4,10 +4,11 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace Elastic.Apm.RabbitMQ
 {
-  public sealed class EventingBasicConsumerApm : EventingBasicConsumer
+  public sealed class EventingBasicConsumerApm : AsyncEventingBasicConsumer
   {
 
     private static readonly System.Diagnostics.DiagnosticSource RabbitMqLogger =
@@ -17,9 +18,10 @@ namespace Elastic.Apm.RabbitMQ
     {
     }
 
-    public override void HandleBasicDeliver(string consumerTag, ulong deliveryTag, bool redelivered, string exchange, string routingKey, IBasicProperties properties, byte[] body)
+    public override Task HandleBasicDeliver(string consumerTag, ulong deliveryTag, bool redelivered, string exchange, string routingKey, IBasicProperties properties, ReadOnlyMemory<byte> body)
     {
-      var prms = new RabbitMqHandleParams {
+      var prms = new RabbitMqHandleParams
+      {
         ConsumerTag = consumerTag,
         DeliveryTag = deliveryTag,
         Redelivered = redelivered,
@@ -29,23 +31,26 @@ namespace Elastic.Apm.RabbitMQ
         Body = body
       };
 
-      Stopwatch sw = null;
-
-      try
+      Task.Run(async () =>
       {
-        HandleStart(prms);
-        sw = Stopwatch.StartNew();
-        base.HandleBasicDeliver(consumerTag, deliveryTag, redelivered, exchange, routingKey, properties, body);
-        sw.Stop();
-        HandleEnd(sw.Elapsed, prms);
-      }
-      catch (Exception ex)
-      {
-        if (sw == null) return;
+        Stopwatch sw = null;
+        try
+        {
+          HandleStart(prms);
+          sw = Stopwatch.StartNew();
+          await base.HandleBasicDeliver(consumerTag, deliveryTag, redelivered, exchange, routingKey, properties, body);
+          sw.Stop();
+          HandleEnd(sw.Elapsed, prms);
+        }
+        catch (Exception ex)
+        {
+          if (sw == null) return;
 
-        sw.Stop();
-        HandleFail(ex, sw.Elapsed, prms);
-      }
+          sw.Stop();
+          HandleFail(ex, sw.Elapsed, prms);
+        }
+      });
+      return Task.CompletedTask;
     }
 
     private void HandleStart(RabbitMqHandleParams prms)

@@ -52,11 +52,12 @@ namespace Elastic.Apm.RabbitMQ
 
         if (!_processingQueries.TryAdd(prms.Id, transaction)) return;
 
+        transaction.Context.Labels.Add(nameof(prms.RoutingKey), prms.RoutingKey);
         transaction.Context.Labels.Add(nameof(prms.ConsumerTag), prms.ConsumerTag);
         transaction.Context.Labels.Add(nameof(prms.DeliveryTag), $"{prms.DeliveryTag}");
         transaction.Context.Labels.Add(nameof(prms.Exchange), prms.Exchange);
         transaction.Context.Labels.Add(nameof(prms.Redelivered), $"{prms.ConsumerTag}");
-        transaction.Context.Labels.Add(nameof(prms.Body), prms.Body?.Length > 0 ? System.Text.Encoding.UTF8.GetString(prms.Body) : string.Empty);
+        transaction.Context.Labels.Add(nameof(prms.Body), !prms.Body.IsEmpty ? System.Text.Encoding.UTF8.GetString(prms.Body.ToArray()) : string.Empty);
       }
       catch (Exception ex)
       {
