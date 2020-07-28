@@ -18,7 +18,7 @@ namespace Elastic.Apm.RabbitMQ
     {
     }
 
-    public override Task HandleBasicDeliver(string consumerTag, ulong deliveryTag, bool redelivered, string exchange, string routingKey, IBasicProperties properties, ReadOnlyMemory<byte> body)
+    public override Task HandleBasicDeliver(string consumerTag, ulong deliveryTag, bool redelivered, string exchange, string routingKey, IBasicProperties properties, byte[] body)
     {
       var prms = new RabbitMqHandleParams
       {

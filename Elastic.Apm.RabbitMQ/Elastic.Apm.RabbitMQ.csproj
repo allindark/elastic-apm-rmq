@@ -6,7 +6,7 @@
 
   <ItemGroup>
     <PackageReference Include="Elastic.Apm" Version="1.6.1" />
-    <PackageReference Include="RabbitMQ.Client" Version="6.1.0" />
+    <PackageReference Include="RabbitMQ.Client" Version="5.2.0" />
   </ItemGroup>
 
 </Project>

@@ -57,7 +57,7 @@ namespace Elastic.Apm.RabbitMQ
         transaction.Context.Labels.Add(nameof(prms.DeliveryTag), $"{prms.DeliveryTag}");
         transaction.Context.Labels.Add(nameof(prms.Exchange), prms.Exchange);
         transaction.Context.Labels.Add(nameof(prms.Redelivered), $"{prms.ConsumerTag}");
-        transaction.Context.Labels.Add(nameof(prms.Body), !prms.Body.IsEmpty ? System.Text.Encoding.UTF8.GetString(prms.Body.ToArray()) : string.Empty);
+        transaction.Context.Labels.Add(nameof(prms.Body), prms.Body != null ? System.Text.Encoding.UTF8.GetString(prms.Body) : string.Empty);
       }
       catch (Exception ex)
       {

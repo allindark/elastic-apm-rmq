@@ -64,7 +64,7 @@ namespace Elastic.Apm.RabbitMQ
     public string Exchange { get; set; }
     public string RoutingKey { get; set; }
     public IBasicProperties Properties { get; set; }
-    public ReadOnlyMemory<byte> Body { get; set; }
+    public byte[] Body { get; set; }
     public string CommandName => "Receive";
   }
 }
