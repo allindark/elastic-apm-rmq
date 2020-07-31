@@ -7,6 +7,7 @@ namespace Elastic.Apm.RabbitMQ
   static class Constants
   {
     internal const string DiagnosticName = "RabbitMQ.Client";
+    internal const string Type = "rabbit_mq";
 
     public static class Events
     {

@@ -48,7 +48,7 @@ namespace Elastic.Apm.RabbitMQ
       {
         var prms = evt.Params;
 
-        var transaction = _ApmAgent.Tracer.StartTransaction(prms.RoutingKey, ApiConstants.TypeExternal);
+        var transaction = _ApmAgent.Tracer.StartTransaction(prms.RoutingKey, Constants.Type);
 
         if (!_processingQueries.TryAdd(prms.Id, transaction)) return;
 
