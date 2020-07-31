@@ -4,7 +4,6 @@ using System;
 namespace Elastic.Apm.RabbitMQ
 {
   internal class RabbitMqEvent<T>
-    where T : RabbitMqHandleParams
   {
     protected readonly T _Params;
 

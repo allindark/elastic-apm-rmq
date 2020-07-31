@@ -1,8 +1,10 @@
 ﻿using Elastic.Apm.Api;
 using Elastic.Apm.Logging;
+using RabbitMQ.Client;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Text;
 
 namespace Elastic.Apm.RabbitMQ
 {
@@ -39,6 +41,28 @@ namespace Elastic.Apm.RabbitMQ
         case Constants.Events.ReceiveFail when value.Value is RabbitMqFailEvent<RabbitMqHandleParams> evt:
           HandleFail(evt);
           break;
+        case Constants.Events.PublishTracingHeader when value.Value is RabbitMqEvent<IBasicProperties> evt:
+          HandleTraceHeader(evt);
+          break;
+      }
+    }
+
+    private void HandleTraceHeader(RabbitMqEvent<IBasicProperties> evt)
+    {
+      try
+      {
+        var transaction = _ApmAgent.Tracer.CurrentTransaction;
+        if (transaction == null)
+        {
+          _Logger?.Log(LogLevel.Debug, "No current transaction, skip creating span for outgoing rabbit publish", null, null);
+          return;
+        }
+
+        evt.Params.Headers.Add(Constants.HeaderKey, Encoding.UTF8.GetBytes(transaction.OutgoingDistributedTracingData?.SerializeToString()));
+      }
+      catch (Exception ex)
+      {
+        _Logger?.Log(LogLevel.Error, "Exception was thrown while handling 'command handle trace header'", ex, null);
       }
     }
 
@@ -47,8 +71,13 @@ namespace Elastic.Apm.RabbitMQ
       try
       {
         var prms = evt.Params;
+        DistributedTracingData tracingData = null;
+        if (prms.Properties != null && prms.Properties.Headers.TryGetValue(Constants.HeaderKey, out object tracingDataBlob) && tracingDataBlob is byte[])
+        {
+          tracingData = DistributedTracingData.TryDeserializeFromString(Encoding.UTF8.GetString((byte[])tracingDataBlob));
+        }
 
-        var transaction = _ApmAgent.Tracer.StartTransaction(prms.RoutingKey, Constants.Type);
+        var transaction = _ApmAgent.Tracer.StartTransaction(prms.RoutingKey, Constants.Type, tracingData);
 
         if (!_processingQueries.TryAdd(prms.Id, transaction)) return;
 

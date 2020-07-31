@@ -10,7 +10,6 @@ namespace Elastic.Apm.RabbitMQ
 {
   public sealed class EventingBasicConsumerApm : AsyncEventingBasicConsumer
   {
-
     private static readonly System.Diagnostics.DiagnosticSource RabbitMqLogger =
             new DiagnosticListener(Constants.DiagnosticName);
 
