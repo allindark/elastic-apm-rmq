@@ -12,12 +12,10 @@ namespace Elastic.Apm.RabbitMQ
   {
     private readonly ConcurrentDictionary<Guid, IExecutionSegment> _processingQueries = new ConcurrentDictionary<Guid, IExecutionSegment>();
     private IApmAgent _ApmAgent;
-    private readonly IApmLogger _Logger;
 
     public RabbitMqDiagnosticListener(IApmAgent apmAgent)
     {
       _ApmAgent = apmAgent;
-      _Logger = _ApmAgent.Logger;
     }
 
     public void OnCompleted()
@@ -54,15 +52,13 @@ namespace Elastic.Apm.RabbitMQ
         var transaction = _ApmAgent.Tracer.CurrentTransaction;
         if (transaction == null)
         {
-          _Logger?.Log(LogLevel.Debug, "No current transaction, skip creating span for outgoing rabbit publish", null, null);
           return;
         }
 
         evt.Params.Headers.Add(Constants.HeaderKey, Encoding.UTF8.GetBytes(transaction.OutgoingDistributedTracingData?.SerializeToString()));
       }
-      catch (Exception ex)
+      catch
       {
-        _Logger?.Log(LogLevel.Error, "Exception was thrown while handling 'command handle trace header'", ex, null);
       }
     }
 
@@ -88,9 +84,8 @@ namespace Elastic.Apm.RabbitMQ
         transaction.Context.Labels.Add(nameof(prms.Redelivered), $"{prms.ConsumerTag}");
         transaction.Context.Labels.Add(nameof(prms.Body), prms.Body != null ? System.Text.Encoding.UTF8.GetString(prms.Body) : string.Empty);
       }
-      catch (Exception ex)
+      catch
       {
-        _Logger?.Log(LogLevel.Error, "Exception was thrown while handling 'command started event'", ex, null);
       }
     }
 
@@ -102,10 +97,7 @@ namespace Elastic.Apm.RabbitMQ
         span.Duration = evt.Duration.TotalMilliseconds;
         span.End();
       }
-      catch (Exception ex)
-      {
-        _Logger?.Log(LogLevel.Error, "Exception was thrown while handling 'command succeeded event'", ex, null);
-      }
+      catch { }
     }
 
     private void HandleFail(RabbitMqFailEvent<RabbitMqHandleParams> evt)
@@ -117,10 +109,7 @@ namespace Elastic.Apm.RabbitMQ
         span.CaptureException(evt.Exception);
         span.End();
       }
-      catch (Exception ex)
-      {
-        _Logger?.Log(LogLevel.Error, "Exception was thrown while handling 'command failed event'", ex, null);
-      }
+      catch { }
     }
   }
 }
