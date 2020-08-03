@@ -42,7 +42,49 @@ namespace Elastic.Apm.RabbitMQ
         case Constants.Events.PublishTracingHeader when value.Value is RabbitMqEvent<IBasicProperties> evt:
           HandleTraceHeader(evt);
           break;
+        case Constants.Events.SpanStart when value.Value is RabbitMqEvent<ApmSpanScopeParams> evt:
+          HandleStartSpan(evt);
+          break;
+        case Constants.Events.SpanEnd when value.Value is RabbitMqDurationEvent<ApmSpanScopeParams> evt:
+          HandleEndSpan(evt);
+          break;
       }
+    }
+
+    private void HandleEndSpan(RabbitMqDurationEvent<ApmSpanScopeParams> evt)
+    {
+      try
+      {
+        if (!_processingQueries.TryRemove(evt.Params.Id, out var span)) return;
+        if (evt.Params != null)
+        {
+          foreach (var item in evt.Params.Labels)
+          {
+            span.Labels.Add(item.Key, $"{item.Value}");
+          }
+        }
+        span.Duration = evt.Duration.TotalMilliseconds;
+        span.End();
+      }
+      catch { }
+    }
+
+    private void HandleStartSpan(RabbitMqEvent<ApmSpanScopeParams> evt)
+    {
+      try
+      {
+        var transaction = _ApmAgent.Tracer.CurrentTransaction;
+        var currentExecutionSegment = _ApmAgent.Tracer.CurrentSpan ?? (IExecutionSegment)transaction;
+        if (currentExecutionSegment == null)
+          return;
+
+        var span = currentExecutionSegment.StartSpan(
+                      evt.Params.Command,
+                      Constants.Type);
+
+        if (!_processingQueries.TryAdd(evt.Params.Id, span)) return;
+      }
+      catch { }
     }
 
     private void HandleTraceHeader(RabbitMqEvent<IBasicProperties> evt)

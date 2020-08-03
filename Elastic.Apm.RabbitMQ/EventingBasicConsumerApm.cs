@@ -10,6 +10,32 @@ namespace Elastic.Apm.RabbitMQ
 {
   public sealed class EventingBasicConsumerApm : AsyncEventingBasicConsumer
   {
+    private class ApmSpanScope : IApmSpanScope
+    {
+      private readonly EventingBasicConsumerApm _Consumer;
+      private readonly ApmSpanScopeParams _Params;
+      private readonly Stopwatch _StopWatch;
+
+      public ApmSpanScope(string command, EventingBasicConsumerApm consumer)
+      {
+        _Consumer = consumer;
+        _Params = new ApmSpanScopeParams(command);
+        _StopWatch = Stopwatch.StartNew();
+        _Consumer.HandleSpanStart(_Params);
+      }
+
+      public void AddLabel(string key, string value)
+      {
+        _Params.AddLabel(key, value);
+      }
+
+      public void Dispose()
+      {
+        _StopWatch.Stop();
+        _Consumer.HandleSpanEnd(_StopWatch.Elapsed, _Params);
+      }
+    }
+
     private static readonly System.Diagnostics.DiagnosticSource RabbitMqLogger =
             new DiagnosticListener(Constants.DiagnosticName);
 
@@ -50,6 +76,23 @@ namespace Elastic.Apm.RabbitMQ
         }
       });
       return Task.CompletedTask;
+    }
+
+    public IApmSpanScope ApmSpan(string command)
+    {
+      return new ApmSpanScope(command, this);
+    }
+
+    private void HandleSpanStart(ApmSpanScopeParams prms)
+    {
+      if (RabbitMqLogger.IsEnabled(Constants.Events.SpanStart))
+        RabbitMqLogger.Write(Constants.Events.SpanStart, RabbitMqEvent<ApmSpanScopeParams>.Success(prms));
+    }
+
+    private void HandleSpanEnd(TimeSpan duration, ApmSpanScopeParams prms)
+    {
+      if (RabbitMqLogger.IsEnabled(Constants.Events.SpanEnd))
+        RabbitMqLogger.Write(Constants.Events.SpanEnd, RabbitMqDurationEvent<ApmSpanScopeParams>.Success(duration, prms));
     }
 
     private void HandleStart(RabbitMqHandleParams prms)

@@ -16,6 +16,8 @@ namespace Elastic.Apm.RabbitMQ
       internal const string ReceiveStart = "ReceiveStart";
       internal const string ReceiveEnd = "ReceiveEnd";
       internal const string ReceiveFail = "ReceiveFail";
+      internal const string SpanStart = "SpanStart";
+      internal const string SpanEnd = "SpanEnd";
       internal const string PublishTracingHeader = "PublishTracingHeader";
     }
   }

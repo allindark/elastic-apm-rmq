@@ -18,7 +18,6 @@ namespace Elastic.Apm.RabbitMQ
   }
 
   internal class RabbitMqDurationEvent<T> : RabbitMqEvent<T>
-  where T : RabbitMqHandleParams
   {
     private readonly TimeSpan _Duration;
 
@@ -34,7 +33,6 @@ namespace Elastic.Apm.RabbitMQ
   }
 
   internal class RabbitMqFailEvent<T> : RabbitMqDurationEvent<T>
-    where T : RabbitMqHandleParams
   {
     private readonly Exception _Exception;
     private RabbitMqFailEvent(Exception ex, TimeSpan duration, T @params)
