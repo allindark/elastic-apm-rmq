@@ -66,22 +66,27 @@ namespace Elastic.Apm.RabbitMQ
             span.Labels.Add(item.Key, $"{item.Value}");
           }
         }
-        if (_Options?.LabelThreadsWhenDurationMs != null && _Options.LabelThreadsWhenDurationMs < evt.Duration.TotalMilliseconds)
-        {
-          ThreadPool.GetAvailableThreads(out int availableWT, out int availableIO);
-          ThreadPool.GetMaxThreads(out int maxWT, out int maxIO);
-          ThreadPool.GetMinThreads(out int minWT, out int minIO);
-          span.Labels.Add("Threads.Min.Workers", $"{minWT}");
-          span.Labels.Add("Threads.Min.IO", $"{minIO}");
-          span.Labels.Add("Threads.Available.Workers", $"{availableWT}");
-          span.Labels.Add("Threads.Available.IO", $"{availableIO}");
-          span.Labels.Add("Threads.Uses.Workers", $"{maxWT - availableWT}");
-          span.Labels.Add("Threads.Uses.IO", $"{maxIO - availableIO}");
-        }
+        TryFixThreadsCount(span, evt.Duration.TotalMilliseconds);
         span.Duration = evt.Duration.TotalMilliseconds;
         span.End();
       }
       catch { }
+    }
+
+    private void TryFixThreadsCount(IExecutionSegment span, double duration)
+    {
+      if (_Options?.LabelThreadsWhenDurationMs != null && _Options.LabelThreadsWhenDurationMs < duration)
+      {
+        ThreadPool.GetAvailableThreads(out int availableWT, out int availableIO);
+        ThreadPool.GetMaxThreads(out int maxWT, out int maxIO);
+        ThreadPool.GetMinThreads(out int minWT, out int minIO);
+        span.Labels.Add("Threads.Min.Workers", $"{minWT}");
+        span.Labels.Add("Threads.Min.IO", $"{minIO}");
+        span.Labels.Add("Threads.Available.Workers", $"{availableWT}");
+        span.Labels.Add("Threads.Available.IO", $"{availableIO}");
+        span.Labels.Add("Threads.Uses.Workers", $"{maxWT - availableWT}");
+        span.Labels.Add("Threads.Uses.IO", $"{maxIO - availableIO}");
+      }
     }
 
     private void HandleStartSpan(RabbitMqEvent<ApmSpanScopeParams> evt)
@@ -151,6 +156,7 @@ namespace Elastic.Apm.RabbitMQ
       try
       {
         if (!_processingQueries.TryRemove(evt.Params.Id, out var span)) return;
+        TryFixThreadsCount(span, evt.Duration.TotalMilliseconds);
         span.Duration = evt.Duration.TotalMilliseconds;
         span.End();
       }
