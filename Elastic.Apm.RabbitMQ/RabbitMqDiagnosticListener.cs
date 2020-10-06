@@ -5,6 +5,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 
 namespace Elastic.Apm.RabbitMQ
 {
@@ -12,10 +13,12 @@ namespace Elastic.Apm.RabbitMQ
   {
     private readonly ConcurrentDictionary<Guid, IExecutionSegment> _processingQueries = new ConcurrentDictionary<Guid, IExecutionSegment>();
     private IApmAgent _ApmAgent;
+    private readonly RabbitMqDiagnosticsOptions _Options;
 
-    public RabbitMqDiagnosticListener(IApmAgent apmAgent)
+    public RabbitMqDiagnosticListener(IApmAgent apmAgent, RabbitMqDiagnosticsOptions options)
     {
       _ApmAgent = apmAgent;
+      _Options = options;
     }
 
     public void OnCompleted()
@@ -62,6 +65,18 @@ namespace Elastic.Apm.RabbitMQ
           {
             span.Labels.Add(item.Key, $"{item.Value}");
           }
+        }
+        if (_Options?.LabelThreadsWhenDurationMs != null && _Options.LabelThreadsWhenDurationMs < evt.Duration.TotalMilliseconds)
+        {
+          ThreadPool.GetAvailableThreads(out int availableWT, out int availableIO);
+          ThreadPool.GetMaxThreads(out int maxWT, out int maxIO);
+          ThreadPool.GetMinThreads(out int minWT, out int minIO);
+          span.Labels.Add("Threads.Min.Workers", $"{minWT}");
+          span.Labels.Add("Threads.Min.IO", $"{minIO}");
+          span.Labels.Add("Threads.Available.Workers", $"{availableWT}");
+          span.Labels.Add("Threads.Available.IO", $"{availableIO}");
+          span.Labels.Add("Threads.Uses.Workers", $"{maxWT - availableWT}");
+          span.Labels.Add("Threads.Uses.IO", $"{maxIO - availableIO}");
         }
         span.Duration = evt.Duration.TotalMilliseconds;
         span.End();
