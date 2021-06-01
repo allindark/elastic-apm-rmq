@@ -14,7 +14,7 @@ namespace Elastic.Apm.RabbitMQ
     /// Add thread pool labels when duration grater then...
     /// </summary>
     public double? LabelThreadsWhenDurationMs { get; set; }
-
+    
     internal static RabbitMqDiagnosticsOptions Default()
     {
       return new RabbitMqDiagnosticsOptions();

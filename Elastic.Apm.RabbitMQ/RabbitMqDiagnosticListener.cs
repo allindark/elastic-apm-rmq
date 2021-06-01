@@ -1,4 +1,5 @@
 ﻿using Elastic.Apm.Api;
+using Elastic.Apm.Helpers;
 using Elastic.Apm.Logging;
 using RabbitMQ.Client;
 using System;
@@ -63,7 +64,7 @@ namespace Elastic.Apm.RabbitMQ
         {
           foreach (var item in evt.Params.Labels)
           {
-            span.Labels.Add(item.Key, $"{item.Value}");
+            span.SetLabel(item.Key, $"{item.Value}");
           }
         }
         TryFixThreadsCount(span, evt.Duration.TotalMilliseconds);
@@ -80,12 +81,12 @@ namespace Elastic.Apm.RabbitMQ
         ThreadPool.GetAvailableThreads(out int availableWT, out int availableIO);
         ThreadPool.GetMaxThreads(out int maxWT, out int maxIO);
         ThreadPool.GetMinThreads(out int minWT, out int minIO);
-        span.Labels.Add("Threads.Min.Workers", $"{minWT}");
-        span.Labels.Add("Threads.Min.IO", $"{minIO}");
-        span.Labels.Add("Threads.Available.Workers", $"{availableWT}");
-        span.Labels.Add("Threads.Available.IO", $"{availableIO}");
-        span.Labels.Add("Threads.Uses.Workers", $"{maxWT - availableWT}");
-        span.Labels.Add("Threads.Uses.IO", $"{maxIO - availableIO}");
+        span.SetLabel("Threads.Min.Workers", $"{minWT}");
+        span.SetLabel("Threads.Min.IO", $"{minIO}");
+        span.SetLabel("Threads.Available.Workers", $"{availableWT}");
+        span.SetLabel("Threads.Available.IO", $"{availableIO}");
+        span.SetLabel("Threads.Uses.Workers", $"{maxWT - availableWT}");
+        span.SetLabel("Threads.Uses.IO", $"{maxIO - availableIO}");
       }
     }
 
@@ -135,20 +136,28 @@ namespace Elastic.Apm.RabbitMQ
           tracingData = DistributedTracingData.TryDeserializeFromString(Encoding.UTF8.GetString((byte[])tracingDataBlob));
         }
 
+        if (MatchesIgnoreMessageQueues(prms.RoutingKey))
+          return;
+
         var transaction = _ApmAgent.Tracer.StartTransaction(prms.RoutingKey, Constants.Type, tracingData);
 
         if (!_processingQueries.TryAdd(prms.Id, transaction)) return;
 
-        transaction.Context.Labels.Add(nameof(prms.RoutingKey), prms.RoutingKey);
-        transaction.Context.Labels.Add(nameof(prms.ConsumerTag), prms.ConsumerTag);
-        transaction.Context.Labels.Add(nameof(prms.DeliveryTag), $"{prms.DeliveryTag}");
-        transaction.Context.Labels.Add(nameof(prms.Exchange), prms.Exchange);
-        transaction.Context.Labels.Add(nameof(prms.Redelivered), $"{prms.ConsumerTag}");
-        transaction.Context.Labels.Add(nameof(prms.Body), prms.Body != null ? System.Text.Encoding.UTF8.GetString(prms.Body) : string.Empty);
+        transaction.SetLabel(nameof(prms.RoutingKey), prms.RoutingKey);
+        transaction.SetLabel(nameof(prms.ConsumerTag), prms.ConsumerTag);
+        transaction.SetLabel(nameof(prms.DeliveryTag), $"{prms.DeliveryTag}");
+        transaction.SetLabel(nameof(prms.Exchange), prms.Exchange);
+        transaction.SetLabel(nameof(prms.Redelivered), $"{prms.ConsumerTag}");
+        transaction.SetLabel(nameof(prms.Body), prms.Body != null ? System.Text.Encoding.UTF8.GetString(prms.Body) : string.Empty);
       }
       catch
       {
       }
+    }
+
+    private bool MatchesIgnoreMessageQueues(string routingKey)
+    {
+      return WildcardMatcher.IsAnyMatch(_ApmAgent.ConfigurationReader?.IgnoreMessageQueues, routingKey);
     }
 
     private void HandleEnd(RabbitMqDurationEvent<RabbitMqHandleParams> evt)
